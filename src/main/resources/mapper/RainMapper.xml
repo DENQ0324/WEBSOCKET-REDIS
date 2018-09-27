@@ -1,0 +1,488 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.lensyn.ispbs.mapper.RainMapper">
+<resultMap type="java.util.HashMap" id="hashmap" />
+	<!-- 降雨排名数据 区域 -->
+	<resultMap id="RainRankDataResultMap" type="com.lensyn.ispbs.entity.rain.RainRankData">
+		<result column="id" property="id" jdbcType="VARCHAR" />
+		<result column="area_id" property="areaId" jdbcType="VARCHAR" />
+		<result column="name" property="name" jdbcType="VARCHAR" />
+		<result column="data" property="data" jdbcType="VARCHAR" />
+	</resultMap>
+	<!-- 区域面雨量/降水量/流域面积数据 -->
+	<resultMap id="AreaRainInfoResultMap" type="com.lensyn.ispbs.entity.rain.AreaInfoData">
+		<result column="surfacerain" property="surfacerain" jdbcType="VARCHAR" />
+		<result column="arearainfall" property="arearainfall" jdbcType="VARCHAR" />
+		<result column="areacover" property="areacover" jdbcType="VARCHAR" />
+		<result column="area_id" property="areaId" jdbcType="VARCHAR" />
+	</resultMap>
+	<!-- 区域雨量站实测 预测数据 -->
+	<resultMap id="RainFallDataResultMap" type="com.lensyn.ispbs.entity.rain.RainFallData">
+		<result column="info_time" property="infoTime" jdbcType="VARCHAR" />
+		<result column="area_id" property="areaId" jdbcType="VARCHAR" />
+		<result column="data" property="rainFallData" jdbcType="VARCHAR" />
+		<result column="type" property="type" jdbcType="VARCHAR" />
+	</resultMap>
+	<!-- 水文站流量 -->
+	<resultMap id="FlowResultMap" type="com.lensyn.ispbs.entity.rain.FlowData">
+		<result column="id" property="id" jdbcType="VARCHAR" />
+		<result column="appliedtime" property="appliedtime" jdbcType="VARCHAR" />
+		<result column="data" property="data" jdbcType="VARCHAR" />
+	</resultMap>
+	
+	<select id="getRainRankByAreaId" resultMap="RainRankDataResultMap" parameterType="java.util.Map">
+		SELECT
+		    id id,
+		    area_id area_id,
+		    data data,
+		    name name
+		FROM
+		    (
+		        SELECT
+		            WDS.ID,
+		            SUM(DATA) DATA,
+		            F.AREA_ID area_id,
+		            F.site_name name
+		        FROM
+		            WDS_TELEMETRYRAINFALLHOUR WDS
+		        LEFT JOIN
+		            FORC_SITE_BS F
+		        ON
+		            F.MAPPING_ID = WDS.ID
+		        WHERE
+		            WDS.APPLIEDTIME BETWEEN to_date(#{stime},'yyyy-mm-dd hh24:mi:ss') AND to_date(#{etime}, 'yyyy-mm-dd hh24:mi:ss')
+		        AND F.AREA_ID = #{areaId}
+		        AND f.meascode = 3500
+		        GROUP BY
+		            WDS.ID,
+		            f.area_id,
+		            f.site_name
+		        ORDER BY
+		            DATA DESC )
+		WHERE
+		   <![CDATA[ ROWNUM < 11 ]]>
+	</select>
+	<select id="getAreaRainInfo" resultMap="AreaRainInfoResultMap">
+		SELECT
+		    '1' area_id,
+		    m1.data                            AS surfacerain,
+		    ROUND((m1.data* area.remark)/10,1) AS arearainfall,
+		    area.remark                        AS areacover
+		FROM
+		    forc_area area
+		LEFT JOIN
+		    (
+		        SELECT
+		            ROUND(SUM(m.data)/
+		            (
+		                SELECT
+		                    SUM(F.WEIGHT)
+		                FROM
+		                    FORC_SITE_BS F
+		                WHERE
+		                    F.AREA_ID = 1 ),2) DATA,
+		            m.area_id
+		        FROM
+		            (
+		                SELECT
+		                    SUM(wds.data)*site.weight data,
+		                    site.site_name,
+		                    site.area_id
+		                FROM
+		                    WDS_TELEMETRYRAINFALLHOUR wds
+		                LEFT JOIN
+		                    FORC_SITE_BS site
+		                ON
+		                    wds.id = site.mapping_id
+		                WHERE
+		                    wds.appliedtime BETWEEN SYSDATE-1 AND SYSDATE
+		                AND site.area_id = 1
+		                AND wds.meascode = 3500
+		                GROUP BY
+		                    site.site_name,
+		                    site.area_id,
+		                    site.weight ) m
+		        GROUP BY
+		            m.area_id ) m1
+		ON
+		    area.id = m1.area_id
+		WHERE
+		    area.id = 1
+		    UNION ALL
+		    SELECT
+		    '2' area_id,
+		    m1.data                            AS surfacerain,
+		    ROUND((m1.data* area.remark)/10,1) AS arearainfall,
+		    area.remark                        AS areacover
+		    
+		FROM
+		    forc_area area
+		LEFT JOIN
+		    (
+		        SELECT
+		            ROUND(SUM(m.data)/
+		            (
+		                SELECT
+		                    SUM(F.WEIGHT)
+		                FROM
+		                    FORC_SITE_BS F
+		                WHERE
+		                    F.AREA_ID = 2 ),2) DATA,
+		            m.area_id
+		        FROM
+		            (
+		                SELECT
+		                    SUM(wds.data)*site.weight data,
+		                    site.site_name,
+		                    site.area_id
+		                FROM
+		                    WDS_TELEMETRYRAINFALLHOUR wds
+		                LEFT JOIN
+		                    FORC_SITE_BS site
+		                ON
+		                    wds.id = site.mapping_id
+		                WHERE
+		                    wds.appliedtime BETWEEN SYSDATE-1 AND SYSDATE
+		                AND site.area_id = 2
+		                AND wds.meascode = 3500
+		                GROUP BY
+		                    site.site_name,
+		                    site.area_id,
+		                    site.weight ) m
+		        GROUP BY
+		            m.area_id ) m1
+		ON
+		    area.id = m1.area_id
+		WHERE
+		    area.id = 2
+		    
+		    UNION ALL
+		    SELECT
+		    '3' area_id,
+		    m1.data                            AS surfacerain,
+		    ROUND((m1.data* area.remark)/10,1) AS arearainfall,
+		    area.remark                        AS areacover
+		    
+		FROM
+		    forc_area area
+		LEFT JOIN
+		    (
+		        SELECT
+		            ROUND(SUM(m.data)/
+		            (
+		                SELECT
+		                    SUM(F.WEIGHT)
+		                FROM
+		                    FORC_SITE_BS F
+		                WHERE
+		                    F.AREA_ID = 3 ),2) DATA,
+		            m.area_id
+		        FROM
+		            (
+		                SELECT
+		                    SUM(wds.data)*site.weight data,
+		                    site.site_name,
+		                    site.area_id
+		                FROM
+		                    WDS_TELEMETRYRAINFALLHOUR wds
+		                LEFT JOIN
+		                    FORC_SITE_BS site
+		                ON
+		                    wds.id = site.mapping_id
+		                WHERE
+		                    wds.appliedtime BETWEEN SYSDATE-1 AND SYSDATE
+		                AND site.area_id = 3
+		                AND wds.meascode = 3500
+		                GROUP BY
+		                    site.site_name,
+		                    site.area_id,
+		                    site.weight ) m
+		        GROUP BY
+		            m.area_id ) m1
+		ON
+		    area.id = m1.area_id
+		WHERE
+		    area.id = 3
+	</select>
+
+	<select id="getRainFallListSevenDay" resultMap="RainFallDataResultMap" parameterType="java.util.Map">
+		SELECT
+		    m.info_time                    info_time,
+		    ROUND(SUM(data),1) data,
+		    m.area_id                      area_id,
+		    '1' type
+		FROM
+		    (
+		        SELECT
+		            TO_CHAR(T.APPLIEDTIME,'yyyy-mm-dd') AS info_time,
+		            s.AREA_ID                           AS area_id,
+		            SUM(T.DATA*s.weight)                AS data,
+		            s.weight                               weight
+		        FROM
+		            WDS_TELEMETRYRAINFALLDAY t
+		        LEFT JOIN
+		            FORC_SITE_BS s
+		        ON
+		            T.ID = s.mapping_id
+		        WHERE
+		            s.MEASCODE = 3500
+		        AND s.area_id = #{areaid}
+		        AND T.APPLIEDTIME BETWEEN TO_DATE(to_char(sysdate,'yyyy-mm-dd'),'yyyy-mm-dd') - 7 AND TO_DATE (to_char(sysdate,'yyyy-mm-dd'),
+		            'yyyy-mm-dd')
+		        GROUP BY
+		            T.APPLIEDTIME,
+		            s.SITE_NAME,
+		            s.weight,
+		            s.area_id
+		        ORDER BY
+		            TO_CHAR(T.APPLIEDTIME, 'YYYY-MM-DD') ) m
+		GROUP BY
+		    m.info_time,
+		    m.area_id
+		
+
+union all
+
+SELECT
+		    m1.PDATE                          info_time,
+		    ROUND(SUM(fvalue),1) data,
+		    m1.area_id                        area_id,
+		    '0' type
+		FROM
+		    (
+		        SELECT
+		            TO_CHAR(r.predict_date,'yyyy-mm-dd') pdate,
+		            SUM(r.fvalue*s.weight) fvalue ,
+		            s.SITE_NAME            name,
+		            s.weight               weight,
+		            s.area_id              area_id
+		        FROM
+		            forc_rain_10day_record r
+		        LEFT JOIN
+		            FORC_SITE_BS s
+		        ON
+		            r.site_id = s.mapping_id
+		        AND s.meascode = 3500
+		        LEFT JOIN
+		            wds_telemetryrainfallday a
+		        ON
+		            r.site_id = a.id
+		        AND r.predict_date=TO_DATE(TO_CHAR(a.appliedtime,'YYYY-MM-DD'),'YYYY-MM-DD')
+		        AND a.meascode=3500
+		        WHERE
+		            r.generation_date = to_date(to_char(sysdate,'yyyy-mm-dd'), 'yyyy-mm-dd')
+		        AND r.predict_date BETWEEN to_date(to_char(sysdate,'yyyy-mm-dd'), 'yyyy-mm-dd') AND to_date(to_char(sysdate,'yyyy-mm-dd'),
+		            'yyyy-mm-dd') +6
+		        AND s.area_id = #{areaid}
+		        GROUP BY
+		            s.SITE_NAME,
+		            TO_CHAR(r.predict_date,'yyyy-mm-dd'),
+		            s.weight,
+		            s.area_id
+		        ORDER BY
+		            s.SITE_NAME,
+		            TO_CHAR(r.predict_date,'yyyy-mm-dd') ) m1
+		GROUP BY
+		    m1.PDATE,
+		    m1.area_id
+		order by info_time asc
+	</select>
+	<select id="getRainFallListTwentyFourHour" resultMap="RainFallDataResultMap" parameterType="java.util.Map">
+	SELECT
+	M .info_time info_time,
+	ROUND (SUM(DATA), 1) DATA,
+	M .area_id area_id,
+	'0' type
+FROM
+	(
+		SELECT
+			SUM (T .fvalue * s.weight) DATA,
+			T .predict_date info_time,
+			s.AREA_ID AS area_id,
+			s.weight weight
+		FROM
+			FORC_RAIN_HOUR_RECORD T
+		LEFT JOIN WDS_TELEMETRYRAINFALLHOUR A ON T .site_id = A . ID
+		AND T .predict_date = A .appliedtime - 1 / 24
+		AND A .meascode = 3500
+		LEFT JOIN FORC_SITE_BS s ON T .site_id = s.mapping_id
+		AND s.meascode = 3500
+		WHERE
+			s.area_id = #{areaid}
+		AND T .predict_date BETWEEN TO_DATE (
+			TO_CHAR (
+				SYSDATE,
+				'yyyy-mm-dd hh24:mi'
+			),
+			'yyyy-mm-dd hh24:mi'
+		)
+		AND TO_DATE (
+			TO_CHAR (
+				SYSDATE,
+				'yyyy-mm-dd hh24:mi'
+			),
+			'yyyy-mm-dd hh24:mi'
+		) + 24 / 24
+		GROUP BY
+			predict_date,
+			s.weight,
+			s.AREA_ID
+		ORDER BY
+			s.SITE_NAME,
+			predict_date
+	) M
+GROUP BY
+	M .info_time,
+	M .area_id
+UNION ALL
+	SELECT
+		M .APPLIEDTIME info_time,
+		ROUND (SUM(DATA), 1) DATA,
+		M .area_id area_id,
+		'1' type
+	FROM
+		(
+			SELECT
+				SUM (A . DATA * s.weight) DATA,
+				A .APPLIEDTIME APPLIEDTIME,
+				s.AREA_ID AS area_id,
+				s.weight weight
+			FROM
+				WDS_TELEMETRYRAINFALLHOUR A
+			LEFT JOIN FORC_SITE_BS s ON S.MAPPING_ID = A . ID
+			AND s.meascode = 3500
+			WHERE
+				s.area_id = #{areaid}
+			AND A .APPLIEDTIME BETWEEN TO_DATE (
+				TO_CHAR (
+					SYSDATE,
+					'yyyy-mm-dd hh24:mi'
+				),
+				'yyyy-mm-dd hh24:mi'
+			) - 24 / 24
+			AND TO_DATE (
+				TO_CHAR (
+					SYSDATE,
+					'yyyy-mm-dd hh24:mi'
+				),
+				'yyyy-mm-dd hh24:mi'
+			)
+			GROUP BY
+				A .APPLIEDTIME,
+				s.weight,
+				s.AREA_ID
+		) M
+	GROUP BY
+		M .APPLIEDTIME,
+		M .area_id
+	ORDER BY
+		info_time ASC
+	</select>
+	
+	<select id="getRainFallListSixHour" resultMap="RainFallDataResultMap" parameterType="java.util.Map">
+	SELECT
+	M .info_time info_time,
+	ROUND (SUM(DATA), 1) DATA,
+	M .area_id area_id,
+	'0' type
+FROM
+	(
+		SELECT
+			SUM (T .fvalue * s.weight) DATA,
+			T .predict_date info_time,
+			s.AREA_ID AS area_id,
+			s.weight weight
+		FROM
+			FORC_RAIN_HOUR_RECORD T
+		LEFT JOIN WDS_TELEMETRYRAINFALLHOUR A ON T .site_id = A . ID
+		AND T .predict_date = A .appliedtime - 1 / 24
+		AND A .meascode = 3500
+		LEFT JOIN FORC_SITE_BS s ON T .site_id = s.mapping_id
+		AND s.meascode = 3500
+		WHERE
+			s.area_id = #{areaid}
+		AND T .predict_date BETWEEN TO_DATE (
+			TO_CHAR (
+				SYSDATE,
+				'yyyy-mm-dd hh24:mi'
+			),
+			'yyyy-mm-dd hh24:mi'
+		)
+		AND TO_DATE (
+			TO_CHAR (
+				SYSDATE,
+				'yyyy-mm-dd hh24:mi'
+			),
+			'yyyy-mm-dd hh24:mi'
+		) + 6 / 24
+		GROUP BY
+			predict_date,
+			s.weight,
+			s.AREA_ID
+
+ORDER BY
+	s.SITE_NAME,
+	predict_date
+) M
+GROUP BY
+	M .info_time,
+	M .area_id
+UNION ALL
+	SELECT
+		M .APPLIEDTIME info_time,
+		ROUND (SUM(DATA), 1) DATA,
+		M .area_id area_id,
+		'1' type
+	FROM
+		(
+			SELECT
+				SUM (A . DATA * s.weight) DATA,
+				A .APPLIEDTIME APPLIEDTIME,
+				s.AREA_ID AS area_id,
+				s.weight weight
+			FROM
+				WDS_TELEMETRYRAINFALLHOUR A
+			LEFT JOIN FORC_SITE_BS s ON S.MAPPING_ID = A . ID
+			AND s.meascode = 3500
+			WHERE
+				s.area_id = #{areaid}
+			AND A .APPLIEDTIME BETWEEN TO_DATE (
+				TO_CHAR (
+					SYSDATE,
+					'yyyy-mm-dd hh24:mi'
+				),
+				'yyyy-mm-dd hh24:mi'
+			) - 6 / 24
+			AND TO_DATE (
+				TO_CHAR (
+					SYSDATE,
+					'yyyy-mm-dd hh24:mi'
+				),
+				'yyyy-mm-dd hh24:mi'
+			)
+			GROUP BY
+				A .APPLIEDTIME,
+				s.weight,
+				s.AREA_ID
+		) M
+	GROUP BY
+		M .APPLIEDTIME,
+		M .area_id
+	ORDER BY
+		info_time ASC
+	</select>
+	<select id="getFlow" resultMap="FlowResultMap" parameterType="java.util.Map">
+	SELECT
+	WDS_TELEMETRYFLOWHOUR.APPLIEDTIME,
+	WDS_TELEMETRYFLOWHOUR. DATA,
+	ID
+FROM
+	WDS_TELEMETRYFLOWHOUR
+WHERE
+	id=#{id}
+AND WDS_TELEMETRYFLOWHOUR.APPLIEDTIME BETWEEN SYSDATE - 2 AND SYSDATE
+AND ROWNUM <![CDATA[<]]> 25
+ORDER BY
+	APPLIEDTIME DESC
+	</select>
+</mapper>

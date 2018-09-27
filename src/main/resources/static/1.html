@@ -1,0 +1,72 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<base href="localhost://localhost:10229/">
+<title>My WebSocket</title>
+</head>
+
+<body>
+	Welcome
+	<br />
+	<input id="text" type="text" />
+	<button onclick="send()">Send</button>
+	<button onclick="closeWebSocket()">Close</button>
+	<div id="message"></div>
+</body>
+
+<script type="text/javascript">
+	var websocket = null;
+
+	//�жϵ�ǰ������Ƿ�֧��WebSocket  
+	if ('WebSocket' in window) {
+		var host=location.hostname+":";
+		var port=location.port;
+		debugger
+		console.log(host+port);
+		websocket = new WebSocket("ws://"+host+port+"/websocket/rain");
+	} else {
+		alert('Not support websocket')
+	}
+
+	//���ӷ�������Ļص�����  
+	websocket.onerror = function() {
+		setMessageInnerHTML("error");
+	};
+
+	//���ӳɹ������Ļص�����  
+	websocket.onopen = function(event) {
+		setMessageInnerHTML("open");
+	}
+
+	//���յ���Ϣ�Ļص�����  
+	websocket.onmessage = function(event) {
+		setMessageInnerHTML(event.data);
+	}
+
+	//���ӹرյĻص�����  
+	websocket.onclose = function() {
+		setMessageInnerHTML("close");
+	}
+
+	//�������ڹر��¼��������ڹر�ʱ������ȥ�ر�websocket���ӣ���ֹ���ӻ�û�Ͽ��͹رմ��ڣ�server�˻����쳣��  
+	window.onbeforeunload = function() {
+		websocket.close();
+	}
+
+	//����Ϣ��ʾ����ҳ��  
+	function setMessageInnerHTML(innerHTML) {
+		document.getElementById('message').innerHTML += innerHTML + '<br/>';
+	}
+
+	//�ر�����  
+	function closeWebSocket() {
+		websocket.close();
+	}
+
+	//������Ϣ  
+	function send() {
+		var message = document.getElementById('text').value;
+		websocket.send(message);
+	}
+</script>
+</html>

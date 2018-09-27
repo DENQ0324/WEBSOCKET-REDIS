@@ -1,0 +1,5 @@
+#卫星云图读取地址
+cloud :
+  image :
+    paths : http://10.176.155.250:29998/WF/
+    filepaths : E:/work/test
